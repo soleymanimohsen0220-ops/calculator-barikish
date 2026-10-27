@@ -14,23 +14,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Prepare workspace
+        run: |
+          chmod -R 777 .
+          mkdir -p bin
 
       - name: Build APK in Buildozer container
         run: |
-          # Run buildozer inside the official kivy/buildozer image
-          # The image has user 'user' (UID 1000). Use --user 1000:1000 to avoid root warning.
+          # Run buildozer as root inside the container (root has full access)
+          # Use BUILDOZER_WARN_ON_ROOT=0 to skip the "running as root" prompt
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/home/user/hostcwd" \
             -w /home/user/hostcwd \
             -e ANDROID_HOME=/home/user/.buildozer/android/platform/android-sdk \
             -e ANDROID_SDK_ROOT=/home/user/.buildozer/android/platform/android-sdk \
             -e BUILDOZER_WARN_ON_ROOT=0 \
-            -e USER=user \
-            --user 1000:1000 \
             ghcr.io/kivy/buildozer:latest \
-            /bin/bash -lc "buildozer -v android debug"
+            /bin/bash -c "echo y | buildozer -v android debug"
         timeout-minutes: 60
 
       - name: List artifacts
