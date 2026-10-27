@@ -21,16 +21,16 @@ jobs:
 
       - name: Build APK in Buildozer container
         run: |
-          # Run buildozer as root inside the container (root has full access)
-          # Use BUILDOZER_WARN_ON_ROOT=0 to skip the "running as root" prompt
+          # The image's ENTRYPOINT is buildozer, so we pass buildozer args directly
           docker run --rm \
+            --entrypoint /bin/bash \
             -v "$GITHUB_WORKSPACE:/home/user/hostcwd" \
             -w /home/user/hostcwd \
             -e ANDROID_HOME=/home/user/.buildozer/android/platform/android-sdk \
             -e ANDROID_SDK_ROOT=/home/user/.buildozer/android/platform/android-sdk \
             -e BUILDOZER_WARN_ON_ROOT=0 \
             ghcr.io/kivy/buildozer:latest \
-            /bin/bash -c "echo y | buildozer -v android debug"
+            -c "echo y | buildozer -v android debug"
         timeout-minutes: 60
 
       - name: List artifacts
