@@ -2,55 +2,70 @@ name: Build Android APK
 
 on:
   push:
-    branches: [main, master]
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build:
+    name: Build APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.10'
 
-      - name: Install Buildozer and dependencies
+      - name: Install system dependencies
         run: |
-          pip install buildozer cython==0.29.36
           sudo apt-get update -qq
-          sudo apt-get install -y -qq git zip unzip openjdk-17-jdk python3-pip autoconf automake libtool libtool-bin libltdl-dev pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev ccache
+          sudo apt-get install -y -qq \
+            git zip unzip openjdk-17-jdk \
+            python3-pip autoconf automake libtool libtool-bin libltdl-dev \
+            pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev \
+            cmake libffi-dev libssl-dev ccache build-essential
 
-      - name: Accept Android SDK licenses
+      - name: Install Buildozer and Cython
         run: |
-          export ANDROID_SDK_ROOT=/opt/android-sdk
-          mkdir -p $ANDROID_SDK_ROOT/licenses
-          echo -e "\n8933bad161af41771b9f54d3ddc58f7e" > $ANDROID_SDK_ROOT/licenses/android-sdk-license
-          echo -e "\nd56f5187479451eabf01fb78af6dfcb131a6481e" >> $ANDROID_SDK_ROOT/licenses/android-sdk-license
-          echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $ANDROID_SDK_ROOT/licenses/android-sdk-preview-license
+          python -m pip install --upgrade pip
+          pip install buildozer==1.5.0
+          pip install Cython==0.29.36
 
-      - name: Pre-install Android SDK components
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+
+      - name: Configure Buildozer to use system Android SDK
+        run: |
+          sed -i 's|#android.sdk_path =.*|android.sdk_path = /usr/lib/android-sdk|' buildozer.spec
+          sed -i 's|# android.ndk_path =.*|android.ndk_path = /usr/local/lib/android/ndk|' buildozer.spec || true
+          mkdir -p ~/.buildozer/android/platform
+          ln -sf /usr/lib/android-sdk ~/.buildozer/android/platform/android-sdk
+          echo "ANDROID_SDK_ROOT=/usr/lib/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_HOME=/usr/lib/android-sdk" >> $GITHUB_ENV
+
+      - name: Cache Buildozer global
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.buildozer/android/platform/python-for-android
+            ~/.buildozer/android/platform/build
+          key: ${{ runner.os }}-p4a-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-p4a-
+
+      - name: Build debug APK
+        run: buildozer -v android debug < /dev/null
+        timeout-minutes: 60
         env:
-          ANDROID_SDK_ROOT: /opt/android-sdk
-        run: |
-          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-          cd /tmp
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q commandlinetools-linux-11076708_latest.zip
-          mv cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
-          export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
-          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
+          ANDROID_SDK_ROOT: /usr/lib/android-sdk
+          ANDROID_HOME: /usr/lib/android-sdk
 
-      - name: Build APK
-        env:
-          ANDROID_SDK_ROOT: /opt/android-sdk
-        run: |
-          buildozer android debug < /dev/null
-
-      - name: Upload APK
+      - name: Upload APK artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -65,7 +80,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log
+          name: build-log-${{ github.run_id }}
           path: |
             .buildozer/android/platform/python-for-android/*.log
             /tmp/*.log
