@@ -34,36 +34,25 @@ jobs:
           pip install buildozer==1.5.0
           pip install Cython==0.29.36
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
-
-      - name: Configure Buildozer to use system Android SDK
-        run: |
-          sed -i 's|#android.sdk_path =.*|android.sdk_path = /usr/lib/android-sdk|' buildozer.spec
-          sed -i 's|# android.ndk_path =.*|android.ndk_path = /usr/local/lib/android/ndk|' buildozer.spec || true
-          mkdir -p ~/.buildozer/android/platform
-          ln -sf /usr/lib/android-sdk ~/.buildozer/android/platform/android-sdk
-          echo "ANDROID_SDK_ROOT=/usr/lib/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_HOME=/usr/lib/android-sdk" >> $GITHUB_ENV
-
       - name: Cache Buildozer global
         uses: actions/cache@v3
+        id: cache
         with:
           path: |
-            ~/.buildozer/android/platform/python-for-android
-            ~/.buildozer/android/platform/build
-          key: ${{ runner.os }}-p4a-${{ hashFiles('buildozer.spec') }}
+            ~/.buildozer/android/platform
+            ~/.buildozer/android/packages
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}-v3
           restore-keys: |
-            ${{ runner.os }}-p4a-
+            ${{ runner.os }}-buildozer-
 
       - name: Build debug APK
         run: buildozer -v android debug < /dev/null
         timeout-minutes: 60
         env:
-          ANDROID_SDK_ROOT: /usr/lib/android-sdk
-          ANDROID_HOME: /usr/lib/android-sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          BUILDOZER_WARN_ON_ROOT: '1'
+          JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
 
       - name: Upload APK artifact
         if: always()
@@ -84,5 +73,6 @@ jobs:
           path: |
             .buildozer/android/platform/python-for-android/*.log
             /tmp/*.log
+            ~/.buildozer/android/platform/python-for-android/*.log
           if-no-files-found: warn
           retention-days: 7
