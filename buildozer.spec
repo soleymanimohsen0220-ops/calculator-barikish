@@ -41,10 +41,12 @@ android.minapi = 21
 android.accept_sdk_license = True
 
 # (bool) Skip checking for Android SDK updates
-android.skip_update = True
+# (Must be False so buildozer can install missing components like build-tools)
+android.skip_update = False
 
-# (str) Path to Android SDK (uses GitHub Actions pre-installed SDK)
-android.sdk_path = /usr/local/lib/android/sdk
+# (str) Path to Android SDK — let buildozer download its own copy to avoid
+# incompatibilities with the GitHub Actions pre-installed SDK layout.
+# android.sdk_path = /usr/local/lib/android/sdk
 
 # (list) Android architectures to build for
 android.archs = arm64-v8a, armeabi-v7a
