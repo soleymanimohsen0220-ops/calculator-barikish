@@ -22,7 +22,7 @@ jobs:
         run: |
           pip install buildozer cython==0.29.36
           sudo apt-get update -qq
-          sudo apt-get install -y -qq git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
+          sudo apt-get install -y -qq git zip unzip openjdk-17-jdk python3-pip autoconf automake libtool libtool-bin libltdl-dev pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev ccache
 
       - name: Accept Android SDK licenses
         run: |
@@ -48,12 +48,26 @@ jobs:
         env:
           ANDROID_SDK_ROOT: /opt/android-sdk
         run: |
-          yes | buildozer android debug
+          buildozer android debug < /dev/null
 
       - name: Upload APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: CalculatorBarikish-APK
-          path: bin/*.apk
+          path: |
+            bin/*.apk
+            .buildozer/android/platform/build-*/dist/**/*.apk
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: |
+            .buildozer/android/platform/python-for-android/*.log
+            /tmp/*.log
+          if-no-files-found: warn
+          retention-days: 7
