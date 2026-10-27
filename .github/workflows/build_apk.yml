@@ -9,45 +9,24 @@ jobs:
   build:
     name: Build APK with Docker
     runs-on: ubuntu-latest
-    container:
-      image: kivy/buildozer:latest
-      options: --user root
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Fix ownership for container user
-        run: |
-          chown -R $(id -u):$(id -g) /github/home 2>/dev/null || true
-          chmod -R 777 /github/workspace 2>/dev/null || true
-          mkdir -p /github/home/.buildozer
-          chmod -R 777 /github/home/.buildozer
+      - name: Build APK with Buildozer Docker Action
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          workdir: .
+          buildozer_cmd: buildozer android debug
+          os: ubuntu-22.04
 
-      - name: Show environment
-        run: |
-          whoami
-          pwd
-          ls -la
-          buildozer --version 2>&1 || true
-          cython --version 2>&1 || true
-
-      - name: Build debug APK
-        run: buildozer -v android debug
-        timeout-minutes: 50
-        env:
-          ANDROID_SDK_ROOT: /home/user/.buildozer/android/platform/android-sdk
-          ANDROID_HOME: /home/user/.buildozer/android/platform/android-sdk
-          JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
-          BUILDOZER_WARN_ON_ROOT: '1'
-          USER: root
-          HOME: /github/home
-
-      - name: Find APK
+      - name: List artifacts
         if: always()
         run: |
-          echo "=== Looking for APK ==="
-          find . -name "*.apk" -type f 2>/dev/null
+          echo "=== Looking for APK files ==="
+          find . -name "*.apk" -type f 2>/dev/null || echo "no APK found"
           echo "=== bin/ contents ==="
           ls -la bin/ 2>/dev/null || echo "no bin dir"
 
@@ -68,7 +47,7 @@ jobs:
         with:
           name: build-log-${{ github.run_id }}
           path: |
-            /github/home/.buildozer/android/platform/python-for-android/*.log
             .buildozer/android/platform/python-for-android/*.log
+            /github/home/.buildozer/android/platform/python-for-android/*.log
           if-no-files-found: warn
           retention-days: 7
