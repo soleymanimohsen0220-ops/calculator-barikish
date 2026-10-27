@@ -13,7 +13,11 @@ source.include_exts = py,png,jpg,jpeg,ttf,otf,kv,atlas,json
 version = 1.0.0
 
 # Application requirements
-requirements = python3,kivy
+# Pin Python to 3.11.9 to avoid Python 3.14 pip incompatibility in p4a venv
+requirements = python3==3.11.9,kivy
+
+# Use stable p4a branch (avoids bleeding-edge Python 3.14 default)
+p4a.branch = stable
 
 # Build configuration
 orientation = portrait
