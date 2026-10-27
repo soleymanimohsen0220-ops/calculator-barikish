@@ -1,4 +1,4 @@
-name: Build Android APK (Docker)
+name: Build Android APK
 
 on:
   push:
@@ -7,46 +7,52 @@ on:
 
 jobs:
   build:
-    name: Build APK with Docker
+    name: Build APK
     runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Prepare workspace
-        run: |
-          chmod -R 777 .
-          mkdir -p bin
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Build APK in Buildozer container
+      - name: Install system dependencies
         run: |
-          # Fix pip in the image's venv first (Python 3.14 + old pip = import error)
-          # Then run buildozer
-          docker run --rm \
-            --entrypoint /bin/bash \
-            -v "$GITHUB_WORKSPACE:/home/user/hostcwd" \
-            -w /home/user/hostcwd \
-            -e ANDROID_HOME=/home/user/.buildozer/android/platform/android-sdk \
-            -e ANDROID_SDK_ROOT=/home/user/.buildozer/android/platform/android-sdk \
-            -e BUILDOZER_WARN_ON_ROOT=0 \
-            ghcr.io/kivy/buildozer:latest \
-            -c '
-              set -e
-              echo "=== Fixing pip in venv ==="
-              /home/user/.venv/bin/python -m ensurepip --upgrade || true
-              /home/user/.venv/bin/python -m pip install --upgrade pip setuptools wheel
-              echo "=== Building APK ==="
-              echo y | buildozer -v android debug
-            '
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            git zip unzip openjdk-17-jdk \
+            python3-pip autoconf automake libtool libtool-bin libltdl-dev \
+            pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev \
+            cmake libffi-dev libssl-dev ccache build-essential
+
+      - name: Install Buildozer and Cython
+        run: |
+          python -m pip install --upgrade pip
+          pip install buildozer==1.5.0
+          pip install Cython==0.29.36
+
+      - name: Cache Buildozer global
+        uses: actions/cache@v3
+        id: cache
+        with:
+          path: |
+            ~/.buildozer/android/platform
+          key: ${{ runner.os }}-buildozer-py311-${{ hashFiles('buildozer.spec') }}-v4
+          restore-keys: |
+            ${{ runner.os }}-buildozer-py311-
+
+      - name: Build debug APK
+        run: buildozer -v android debug < /dev/null
         timeout-minutes: 60
 
-      - name: List artifacts
+      - name: List APK
         if: always()
         run: |
-          echo "=== Looking for APK files ==="
-          find . -name "*.apk" -type f 2>/dev/null || echo "no APK found"
-          echo "=== bin/ contents ==="
+          echo "=== Looking for APK ==="
+          find . -name "*.apk" -type f 2>/dev/null
           ls -la bin/ 2>/dev/null || echo "no bin dir"
 
       - name: Upload APK artifact
@@ -56,7 +62,6 @@ jobs:
           name: CalculatorBarikish-APK
           path: |
             bin/*.apk
-            **/*.apk
           if-no-files-found: warn
           retention-days: 30
 
