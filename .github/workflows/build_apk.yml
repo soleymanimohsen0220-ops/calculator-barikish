@@ -19,15 +19,18 @@ jobs:
 
       - name: Build APK in Buildozer container
         run: |
-          # Run buildozer inside the official kivy/buildozer image as user 'user'
+          # Run buildozer inside the official kivy/buildozer image
+          # The image has user 'user' (UID 1000). Use --user 1000:1000 to avoid root warning.
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/home/user/hostcwd" \
             -w /home/user/hostcwd \
             -e ANDROID_HOME=/home/user/.buildozer/android/platform/android-sdk \
             -e ANDROID_SDK_ROOT=/home/user/.buildozer/android/platform/android-sdk \
-            --user user \
+            -e BUILDOZER_WARN_ON_ROOT=0 \
+            -e USER=user \
+            --user 1000:1000 \
             ghcr.io/kivy/buildozer:latest \
-            /bin/bash -c "buildozer -v android debug 2>&1"
+            /bin/bash -lc "buildozer -v android debug"
         timeout-minutes: 60
 
       - name: List artifacts
