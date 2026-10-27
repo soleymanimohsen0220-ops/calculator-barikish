@@ -21,7 +21,8 @@ jobs:
 
       - name: Build APK in Buildozer container
         run: |
-          # The image's ENTRYPOINT is buildozer, so we pass buildozer args directly
+          # Fix pip in the image's venv first (Python 3.14 + old pip = import error)
+          # Then run buildozer
           docker run --rm \
             --entrypoint /bin/bash \
             -v "$GITHUB_WORKSPACE:/home/user/hostcwd" \
@@ -30,7 +31,14 @@ jobs:
             -e ANDROID_SDK_ROOT=/home/user/.buildozer/android/platform/android-sdk \
             -e BUILDOZER_WARN_ON_ROOT=0 \
             ghcr.io/kivy/buildozer:latest \
-            -c "echo y | buildozer -v android debug"
+            -c '
+              set -e
+              echo "=== Fixing pip in venv ==="
+              /home/user/.venv/bin/python -m ensurepip --upgrade || true
+              /home/user/.venv/bin/python -m pip install --upgrade pip setuptools wheel
+              echo "=== Building APK ==="
+              echo y | buildozer -v android debug
+            '
         timeout-minutes: 60
 
       - name: List artifacts
